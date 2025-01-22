@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频帧处理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        select, input[type="color"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .upload-area {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #999;
+        }
+        #uploadButton {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        #uploadButton:hover {
+            background-color: #45a049;
+        }
+        #uploadButton:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #fileName {
+            margin-top: 10px;
+            color: #666;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>视频帧处理工具</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <div class="upload-area" id="dropZone">
+                    <p>点击或拖拽视频文件到这里</p>
+                    <p style="font-size: 0.8em; color: #666;">(支持 .mp4, .avi, .mov 格式)</p>
+                    <input type="file" id="video" name="video" accept=".mp4,.avi,.mov" style="display: none;">
+                </div>
+                <div id="fileName"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="position">文字位置：</label>
+                <select id="position" name="position">
+                    <option value="top-left">左上角</option>
+                    <option value="top-right">右上角</option>
+                    <option value="bottom-left">左下角</option>
+                    <option value="bottom-right">右下角</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="color">文字颜色：</label>
+                <input type="color" id="color" name="color" value="#ffffff">
+            </div>
+            
+            <button type="submit" id="uploadButton" disabled>处理视频</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <p>正在处理视频，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('video');
+        const fileName = document.getElementById('fileName');
+        const uploadButton = document.getElementById('uploadButton');
+        const loading = document.getElementById('loading');
+
+        // 点击上传区域触发文件选择
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // 拖拽文件
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#4CAF50';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#ddd';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ddd';
+            
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileName();
+            }
+        });
+
+        // 文件选择变化
+        fileInput.addEventListener('change', updateFileName);
+
+        function updateFileName() {
+            const file = fileInput.files[0];
+            if (file) {
+                fileName.textContent = `已选择: ${file.name}`;
+                uploadButton.disabled = false;
+            } else {
+                fileName.textContent = '';
+                uploadButton.disabled = true;
+            }
+        }
+
+        // 表单提交
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            uploadButton.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'processed_video.mp4';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('处理视频时出错，请重试');
+                }
+            } catch (error) {
+                alert('上传失败，请重试');
+                console.error('Error:', error);
+            } finally {
+                uploadButton.disabled = false;
+                loading.style.display = 'none';
+                form.reset();
+                fileName.textContent = '';
+                uploadButton.disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
